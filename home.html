@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拉普拉斯科算中心</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "ZCOOL KuaiLe", sans-serif;
+        }
+
+        /* 全局变量：兼容两种风格 */
+        :root {
+            --bg-light: #FAF9F6;
+            --bg-dark: #0A0518;
+            --bg-purple: #1A0F3A;
+            --gold: #D4AF37;
+            --gold-light: #F0E68C;
+            --accent-color-1: #FF7A00;
+            --accent-color-2: #9D4EDD;
+            --border-color: #E53E3E;
+            --text-white: #FFFFFF;
+            --text-gray: #CCCCCC;
+            --text-dark: #333;
+            --hover-bg: #FFF5F5;
+        }
+
+        body {
+            background: url('./back.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: #555;
+            min-height: 100vh;
+            padding: 40px 20px;
+            overflow-x: hidden;
+            transition: all 0.5s ease;
+        }
+
+        /* 暗黑模式 */
+        body.dark-mode {
+            background: linear-gradient(rgba(10, 5, 24, 0.7), rgba(10, 5, 24, 0.7)), url('./back.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--text-white);
+        }
+
+        /* 画廊模式 */
+        body.gallery-mode {
+            background: linear-gradient(rgba(10, 5, 24, 0.8), rgba(26, 15, 58, 0.8)), url('./back.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--text-white);
+            padding: 0;
+        }
+
+        /* 加载动画 */
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+        .loader-circle {
+            width: 50px;
+            height: 50px;
+            border: 4px solid transparent;
+            border-top: 4px solid var(--accent-color-2);
+            border-bottom: 4px solid var(--accent-color-1);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        /* 顶部射灯效果（仅画廊模式显示） */
+        .spotlight-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            display: none;
+        }
+        .gallery-mode .spotlight-container {
+            display: block;
+        }
+        .spotlight {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s ease;
+        }
+        .spotlight-1 { left: 25%; top: 20%; }
+        .spotlight-2 { left: 50%; top: 20%; }
+        .spotlight-3 { left: 75%; top: 20%; }
+
+        /* 画廊容器（仅画廊模式显示） */
+        .gallery-container {
+            position: relative;
+            max-width: 1400px;
+            margin: 0 auto;
+            z-index: 1;
+            display: none;
+            padding: 60px 20px;
+        }
+        .gallery-mode .gallery-container {
+            display: block;
+        }
+
+        /* 左侧信息墙 */
+        .info-panel {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 180px;
+            padding: 20px 0;
+        }
+        .info-panel h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--gold);
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        .info-panel .year {
+            font-size: 1.5rem;
+            color: var(--text-gray);
+            margin-bottom: 8px;
+        }
+        .info-panel .subtitle {
+            font-size: 1rem;
+            color: var(--text-gray);
+            margin-bottom: 20px;
+        }
+        .info-panel .credit {
+            font-size: 0.8rem;
+            color: var(--text-gray);
+            opacity: 0.7;
+        }
+
+        /* 画廊作品墙 */
+        .gallery-wall {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            padding: 60px 0;
+        }
+        .artwork-frame {
+            position: relative;
+            width: 220px;
+            height: 320px;
+            border: 3px solid var(--gold);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+            transition: all 0.4s ease;
+            cursor: pointer;
+        }
+        .artwork-frame:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.4);
+        }
+        .artwork-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.3s ease;
+        }
+        .artwork-frame:hover .artwork-img {
+            transform: scale(1.03);
+        }
+        .artwork-plaque {
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 25px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--gold);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--gold-light);
+            text-align: center;
+            padding: 0 5px;
+        }
+
+        /* 右侧说明牌 */
+        .description-panel {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 180px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--gold);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: var(--text-gray);
+        }
+        .description-panel .title {
+            color: var(--gold);
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .no-touch {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--gold);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: var(--text-gray);
+        }
+
+        /* 底部小红书水印 */
+        .watermark {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            font-size: 0.8rem;
+            color: var(--text-gray);
+            opacity: 0.6;
+            display: none;
+        }
+        .gallery-mode .watermark {
+            display: block;
+        }
+
+        /* 原有网站内容（默认显示，画廊模式隐藏） */
+        .original-site {
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+        .gallery-mode .original-site {
+            display: none;
+        }
+
+        /* 粒子背景容器-分层 */
+        .particle-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .particle { position: absolute; border-radius: 50%; transition: transform 0.3s ease; }
+        .particle-big { width: 8px; height: 8px; opacity: 0.4; }
+        .particle-small { width: 2px; height: 2px; opacity: 0.8; }
+
+        /* 标题 科技炫酷风格 */
+        .title {
+            font-size: clamp(2.2rem, 8vw, 5rem);
+            font-family: 'Courier New', 'Monaco', 'Consolas', 'Bitstream Vera Sans Mono', 'Source Code Pro', monospace, sans-serif;
+            background: linear-gradient(45deg, #121212, #b29172, #1b1b1b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: clamp(1rem, 3vw, 2rem);
+            position: relative;
+            z-index: 2;
+            letter-spacing: 3px;
+            text-align: center;
+            animation: elegant-pulse 3s infinite ease-in-out;
+            font-weight: 700;
+        }
+        .title::before {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            color: white;
+            -webkit-text-stroke: 1px white;
+            z-index: -1;
+        }
+        
+        /* 移除故障动画效果 */
+        @keyframes glitch-anim {
+            0%, 100% { 
+                transform: translate(0);
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+        }
+        
+
+        
+        @keyframes elegant-pulse {
+            0%, 100% { opacity: 1; transform: translateY(0); }
+            50% { opacity: 0.98; transform: translateY(-2px); }
+        }
+        
+        /* 雾状动画效果 */
+        .fog-animation {
+            position: absolute;
+            height: 100px;
+            width: 100%;
+            margin-top: -1.5em;
+            z-index: -1;
+        }
+        
+        .fog-layer {
+            position: absolute;
+            width: 350px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            filter: blur(30px);
+            animation: float 8s infinite ease-in-out;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .fog-layer:nth-child(1) {
+            top: 30px;
+            animation-delay: 0s;
+            background: rgba(255, 255, 255, 0.55);
+            width: 320px;
+        }
+        
+        .fog-layer:nth-child(2) {
+            top: 40px;
+            animation-delay: 2.5s;
+            background: rgba(255, 255, 255, 0.6);
+            width: 360px;
+        }
+        
+        .fog-layer:nth-child(3) {
+            top: 50px;
+            animation-delay: 5s;
+            background: rgba(255, 255, 255, 0.5);
+            width: 300px;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateX(-8%) translateY(0);
+            }
+            50% {
+                transform: translateX(8%) translateY(-8px);
+            }
+        }
+        
+        @keyframes glitch-anim {
+            0%, 95%, 100% { 
+                transform: translate(0);
+                text-shadow: 0 0 5px rgba(200, 200, 200, 0.5), 0 0 10px rgba(200, 200, 200, 0.3);
+            }
+            96% { 
+                transform: translate(3px, -3px);
+                text-shadow: 3px 0 #888888, -3px 0 #ffffff, 0 0 10px rgba(200, 200, 200, 0.6), 0 0 20px rgba(255, 255, 255, 0.4);
+            }
+            97% { 
+                transform: translate(-3px, 3px);
+                text-shadow: -3px 0 #888888, 3px 0 #ffffff, 0 0 10px rgba(200, 200, 200, 0.6), 0 0 20px rgba(255, 255, 255, 0.4);
+            }
+        }
+
+        /* 导航栏-滚动吸附 */
+        .nav-wrapper {
+            position: sticky;
+            top: 20px;
+            z-index: 99;
+            margin-bottom: clamp(2rem, 4vw, 3rem);
+        }
+        .nav {
+            display: flex;
+            gap: clamp(1rem, 2vw, 1.25rem);
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 10px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 按钮-水波纹反馈 */
+        .nav-btn {
+            padding: clamp(0.5rem, 1vw, 0.75rem) clamp(1.5rem, 3vw, 1.75rem);
+            border: none;
+            border-radius: 50px;
+            background-image: linear-gradient(to right, #FFFFFF 50%, var(--border-color) 50%);
+            background-size: 200% 100%;
+            background-position: left;
+            color: var(--border-color);
+            font-size: clamp(1rem, 2vw, 1.25rem);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-btn:hover {
+            background-position: right;
+            color: #FFFFFF;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+        }
+        .nav-btn:active { animation: bounce 0.3s ease; }
+        @keyframes bounce { 0% { transform: translateY(-3px); } 50% { transform: translateY(2px); } 100% { transform: translateY(-3px); } }
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.7);
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            pointer-events: none;
+        }
+        @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+        /* 更新专栏-温和优雅风格 */
+        .update-section {
+            width: 100%;
+            max-width: 1000px;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            position: relative;
+            z-index: 1;
+            margin: 0 auto;
+            transition: all 0.5s ease;
+        }
+        .dark-mode .update-section {
+            background: rgba(245, 245, 245, 0.85);
+            border-color: #ccc;
+            color: #333;
+        }
+        @keyframes rotate { to { transform: rotate(360deg); } }
+
+        /* 标签筛选栏-温和优雅风格 */
+        .tag-bar {
+            display: flex;
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .tag-btn {
+            padding: 0.4rem 1rem;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            background: #f5f5f5;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .tag-btn.active {
+            background: #e0e0e0;
+            color: #5a5a5a;
+            border-color: #aaa;
+        }
+
+        /* 更新列表-折叠展开 */
+        .update-list { list-style: none; }
+        .update-item {
+            padding: 1rem;
+            border-bottom: 1px dashed #E0E0E0;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+        .update-item:hover {
+            background-color: var(--hover-bg);
+            transform: translateX(5px);
+        }
+        .dark-mode .update-item:hover {
+            background-color: #2D2D44;
+        }
+        .update-date {
+            color: var(--accent-color-1);
+            font-weight: bold;
+            min-width: 80px;
+        }
+        .update-content {
+            color: var(--text-dark);
+            line-height: 1.6;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            transition: all 0.3s ease;
+        }
+        .update-content-link {
+            color: #034670;
+            line-height: 1.6;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        .update-content-link:hover {
+            color: rgb(167, 207, 245);
+            text-decoration: underline;
+        }
+        .dark-mode .update-content {
+            color: var(--text-white);
+        }
+        .dark-mode .update-content-link {
+            color: #ff69b4;
+        }
+        .dark-mode .update-content-link:hover {
+            color: #ff1493;
+        }
+        .update-item:hover .update-content {
+            -webkit-line-clamp: unset;
+        }
+        .update-item:hover .update-content-link {
+            -webkit-line-clamp: unset;
+        }
+        .update-item:last-child { border-bottom: none; }
+
+        /* 悬浮功能按钮-温和优雅风格 */
+        .float-btns {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            z-index: 99;
+        }
+        .float-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 1px solid #ddd;
+            background: rgba(255, 255, 255, 0.8);
+            color: #666;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }
+        .float-btn:hover { 
+            background: rgba(255, 255, 255, 1);
+            color: #444;
+            transform: translateY(-2px); 
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2); 
+        }
+
+        /* 看板娘-温和优雅风格 */
+        .kanban {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 110px;
+            height: 160px;
+            z-index: 99;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .kanban:hover { 
+            transform: scale(1.05); 
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        }
+        .kanban-img {
+            width: 100%;
+            height: 100%;
+            background: url("./ss.png") no-repeat center center;
+            background-size: contain;
+            background-position: center;
+            border-radius: 10px;
+            color: transparent;
+        }
+        
+        .kanban-switch {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 1px solid #ddd;
+            background: rgba(255, 255, 255, 0.9);
+            color: #666;
+            cursor: pointer;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+        .kanban-switch:hover {
+            transform: rotate(90deg);
+            background: rgba(255, 255, 255, 1);
+            color: #444;
+        }
+        
+        /* 聊天气泡-温和优雅风格 */
+        .chat-bubble {
+            position: absolute;
+            top: -75px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(250, 250, 250, 0.95);
+            border-radius: 16px;
+            padding: 10px 14px;
+            max-width: 180px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .chat-bubble.show {
+            opacity: 1;
+            visibility: visible;
+            top: -85px;
+        }
+        
+        .bubble-content {
+            font-size: 0.8rem;
+            color: #555;
+            text-align: center;
+            line-height: 1.4;
+            font-family: "ZCOOL KuaiLe", "Microsoft YaHei", sans-serif;
+        }
+        
+        .bubble-arrow {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid rgba(255, 255, 255, 0.95);
+        }
+        
+        .dark-mode .chat-bubble {
+            background: rgba(30, 30, 50, 0.95);
+            border-color: var(--accent-color-2);
+        }
+        
+        .dark-mode .bubble-content {
+            color: var(--text-white);
+        }
+        
+        .dark-mode .bubble-arrow {
+            border-top-color: rgba(30, 30, 50, 0.95);
+        }
+
+        /* 切换画廊模式按钮 */
+        .gallery-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            padding: 10px 20px;
+            border: 2px solid var(--gold);
+            background: rgba(0, 0, 0, 0.6);
+            color: var(--gold);
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        .gallery-toggle:hover {
+            background: rgba(0, 0, 0, 0.8);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载动画 -->
+    <div class="loader" id="loader">
+        <div class="loader-circle"></div>
+    </div>
+
+    <!-- 顶部射灯 -->
+    <div class="spotlight-container">
+        <div class="spotlight spotlight-1"></div>
+        <div class="spotlight spotlight-2"></div>
+        <div class="spotlight spotlight-3"></div>
+    </div>
+
+    <!-- 画廊容器 -->
+    <div class="gallery-container">
+        <div class="info-panel">
+            <h1>拉普拉斯科算中心</h1>
+            <div class="credit">私人稿件 · 禁止转载</div>
+        </div>
+
+        <div class="gallery-wall">
+            <div class="artwork-frame">
+                <img src="你的作品图片1链接" alt="作品1" class="artwork-img">
+        
+            </div>
+            <div class="artwork-frame">
+                <img src="你的作品图片2链接" alt="作品2" class="artwork-img">
+                
+            </div>
+            <div class="artwork-frame">
+                <img src="你的作品图片3链接" alt="作品3" class="artwork-img">
+               
+            </div>
+            <div class="artwork-frame">
+                <img src="你的作品图片4链接" alt="作品4" class="artwork-img">
+                
+            </div>
+            <div class="artwork-frame">
+                <img src="你的作品图片5链接" alt="作品5" class="artwork-img">
+                
+            </div>
+            <div class="artwork-frame">
+                <img src="你的作品图片6链接" alt="作品6" class="artwork-img">
+                
+            </div>
+        </div>
+
+        <div class="description-panel">
+            <div class="title">数字美学艺术展</div>
+            <p>本次展览收录了精选数字艺术作品，融合了赛博朋克与复古美学，展现虚拟与现实的边界探索。所有作品均为原创，禁止商用与二次传播。</p>
+        </div>
+    </div>
+
+    <!-- 原有网站内容 -->
+    <div class="original-site">
+        <!-- 粒子背景 -->
+        <div class="particle-container" id="particleContainer"></div>
+
+        <!-- 标题 -->
+        <h1 class="title" id="mainTitle" data-text="拉普拉斯科算中心">拉普拉斯科算中心</h1>
+        <div class="fog-animation">
+            <div class="fog-layer"></div>
+            <div class="fog-layer"></div>
+            <div class="fog-layer"></div>
+        </div>
+
+        <!-- 导航栏-吸附 -->
+        <div class="nav-wrapper">
+            <div class="nav">
+                <button class="nav-btn">企划</button>
+                <button class="nav-btn">零号元子的个人专栏</button>
+                <button class="nav-btn">十四的个人专栏</button>
+            </div>
+        </div>
+
+        <!-- 更新专栏 -->
+        <div class="update-section">
+            <h2 class="update-title">最新更新</h2>
+            <div class="tag-bar">
+                <button class="tag-btn active">全部</button>
+                <button class="tag-btn">云霄飞车的生还</button>
+                <button class="tag-btn">打赛补题</button>
+                <button class="tag-btn">企划公告</button>
+            </div>
+            <ul class="update-list">
+                 <li class="update-item" data-tag="打赛补题">
+                    <span class="update-date">2026-01-18</span>
+                    <a href="https://blog.csdn.net/2403_88119259?spm=1000.2115.3001.5343" class="update-content-link" target="_blank" color="var(--text-dark)">零号元子的csdn博客</a>
+                </li>
+                <li class="update-item" data-tag="企划公告">
+                    <span class="update-date">2026-01-18</span>
+                    <span class="update-content">拉普拉斯科算中心官网首页上线，新增企划、个人专栏等板块，后续将持续更新</span>
+                </li>
+               
+               
+            </ul>
+        </div>
+    </div>
+
+    <!-- 切换画廊模式按钮 -->
+    <button class="gallery-toggle" id="galleryToggle">🎨 进入画廊</button>
+
+    <!-- 悬浮功能按钮 -->
+    <div class="float-btns">
+        <button class="float-btn" id="darkModeBtn">🌙</button>
+        <button class="float-btn" id="backTopBtn">🔝</button>
+    </div>
+
+    <!-- 看板娘 -->
+    <div class="kanban" id="kanban">
+        <div class="kanban-img" id="kanbanImg"></div>
+        <button class="kanban-switch" id="kanbanSwitch">🔄</button>
+        <div class="chat-bubble" id="chatBubble">
+            <div class="bubble-content">欢迎来到拉普拉斯科算中心！ヾ(≧▽≦*)o</div>
+            <div class="bubble-arrow"></div>
+        </div>
+    </div>
+
+    <script>
+        // 加载动画
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('loader-hidden');
+            }, 800);
+        });
+
+        // 画廊模式切换
+        const galleryToggle = document.getElementById('galleryToggle');
+        galleryToggle.addEventListener('click', () => {
+            document.body.classList.toggle('gallery-mode');
+            galleryToggle.textContent = document.body.classList.contains('gallery-mode') 
+                ? '🔙 返回首页' 
+                : '🎨 进入画廊';
+        });
+
+        // 射灯跟随鼠标
+        document.addEventListener('mousemove', (e) => {
+            if (document.body.classList.contains('gallery-mode')) {
+                const spotlights = document.querySelectorAll('.spotlight');
+                spotlights.forEach((light, index) => {
+                    const offsetX = (index - 1) * 150;
+                    light.style.left = `${e.clientX + offsetX}px`;
+                    light.style.top = `${e.clientY}px`;
+                });
+            }
+        });
+
+        // 作品点击弹窗
+        const frames = document.querySelectorAll('.artwork-frame');
+        frames.forEach(frame => {
+            frame.addEventListener('click', () => {
+                const imgSrc = frame.querySelector('.artwork-img').src;
+                const title = frame.querySelector('.artwork-plaque').textContent;
+                alert(`作品：${title}\n点击查看`);
+            });
+        });
+
+        // 粒子分层+鼠标引力特效
+        const particleContainer = document.getElementById('particleContainer');
+        const particleCount = 80;
+        let mouseX = 0, mouseY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        function createParticles() {
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                if (i % 2 === 0) {
+                    particle.classList.add('particle-big');
+                    particle.style.background = `linear-gradient(45deg, var(--accent-color-1), var(--accent-color-2))`;
+                } else {
+                    particle.classList.add('particle-small');
+                    particle.style.background = '#FFFFFF';
+                }
+                particle.style.left = `${Math.random() * 100}vw`;
+                particle.style.top = `${Math.random() * 100}vh`;
+                particleContainer.appendChild(particle);
+
+                function animateParticle() {
+                    const x = parseFloat(particle.style.left);
+                    const y = parseFloat(particle.style.top);
+                    const dx = mouseX - x - window.innerWidth/2;
+                    const dy = mouseY - y - window.innerHeight/2;
+                    const distance = Math.sqrt(dx*dx + dy*dy);
+                    const force = distance ? 15 / distance : 0;
+                    
+                    const speed = particle.classList.contains('particle-big') ? 0.2 : 0.5;
+                    const moveX = (Math.random() - 0.5) * speed + dx * force;
+                    const moveY = (Math.random() - 0.5) * speed + dy * force;
+
+                    let newX = x + moveX;
+                    let newY = y + moveY;
+                    if (newX < 0) newX = 100;
+                    if (newX > 100) newX = 0;
+                    if (newY < 0) newY = 100;
+                    if (newY > 100) newY = 0;
+
+                    particle.style.left = `${newX}vw`;
+                    particle.style.top = `${newY}vh`;
+                    requestAnimationFrame(animateParticle);
+                }
+                animateParticle();
+            }
+        }
+        createParticles();
+
+        // 按钮水波纹特效
+        const navBtns = document.querySelectorAll('.nav-btn');
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const ripple = document.createElement('span');
+                ripple.classList.add('ripple');
+                const x = e.clientX - e.target.getBoundingClientRect().left;
+                const y = e.clientY - e.target.getBoundingClientRect().top;
+                ripple.style.left = `${x}px`;
+                ripple.style.top = `${y}px`;
+                btn.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            });
+        });
+
+        // 标签筛选功能
+        const tagBtns = document.querySelectorAll('.tag-btn');
+        const updateItems = document.querySelectorAll('.update-item');
+        tagBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tagBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const targetTag = btn.textContent === '全部' ? '' : btn.textContent;
+                updateItems.forEach(item => {
+                    if (targetTag === '' || item.dataset.tag === targetTag) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        });
+
+        // 暗黑模式切换
+        const darkModeBtn = document.getElementById('darkModeBtn');
+        darkModeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            darkModeBtn.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+        });
+
+        // 返回顶部
+        const backTopBtn = document.getElementById('backTopBtn');
+        backTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // 看板娘图片切换功能
+        const kanbanImages = ['./ss.png', './lhyz.png'];
+        let currentImageIndex = 0;
+        const kanbanImg = document.getElementById('kanbanImg');
+        const kanbanSwitch = document.getElementById('kanbanSwitch');
+        
+        // 初始化看板娘图片
+        kanbanImg.style.background = `url('${kanbanImages[currentImageIndex]}') no-repeat center center`;
+        kanbanImg.style.backgroundSize = 'contain';
+        kanbanImg.style.backgroundPosition = 'center';
+        
+        // 切换看板娘图片
+        kanbanSwitch.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡
+            currentImageIndex = (currentImageIndex + 1) % kanbanImages.length;
+            kanbanImg.style.background = `url('${kanbanImages[currentImageIndex]}') no-repeat center center`;
+            kanbanImg.style.backgroundSize = 'contain';
+            kanbanImg.style.backgroundPosition = 'center';
+        });
+        
+        // 看板娘彩蛋
+        const kanban = document.getElementById('kanban');
+        const chatBubble = document.getElementById('chatBubble');
+        
+        kanban.addEventListener('click', () => {
+            // 显示聊天气泡
+            chatBubble.classList.add('show');
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                chatBubble.classList.remove('show');
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
